@@ -1,7 +1,9 @@
 package gdg.hongik.mission.service;
 
+import gdg.hongik.mission.dto.*;
 import gdg.hongik.mission.entity.Product;
 import gdg.hongik.mission.repository.ProductRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -17,78 +19,95 @@ public class ProductService {
     }
 
     // 상품 조회
-    public Product getProduct(String name) {
-        return productRepository.findByName(name)
+    public ProductResponse getProduct(String name) {
+        Product product = productRepository.findByName(name)
                 .orElseThrow(() -> new RuntimeException("상품 없음"));
+
+        return new ProductResponse(
+                product.getName(),
+                product.getPrice(),
+                product.getStock()
+        );
     }
 
     // 상품 등록
-    public String createProduct(Product product) {
-
-        if (productRepository.findByName(product.getName()).isPresent()) {
+    public String createProduct(ProductRequest request) {
+        if (productRepository.findByName(request.name()).isPresent()) {
             throw new RuntimeException("이미 존재하는 상품입니다.");
         }
 
+        Product product = new Product();
+
+        product.setName(request.name());
+        product.setPrice(request.price());
+        product.setStock(request.stock());
         productRepository.save(product);
+
         return "상품 등록 완료";
     }
 
     // 구매
-    public String purchase(List<Product> requests) {
+    @Transactional
+    public PurchaseResponse purchase(List<PurchaseRequest> requests) {
 
         int totalPrice = 0;
-        String result = "";
+        List<PurchaseItemResponse> items = new ArrayList<>();
 
-        for (Product request : requests) {
+        for (PurchaseRequest request : requests) {
 
-            Product product = productRepository.findById(request.getId())
+            // Optional 이기 때문에 한 번에 예외처리
+            Product product = productRepository.findById(request.productId())
                     .orElseThrow(() -> new RuntimeException("상품 없음"));
 
-            if (product.getStock() < request.getQuantity()) {
+            if (product.getStock() < request.quantity()) {
                 throw new RuntimeException("재고 부족");
             }
 
-            // 지금은 DB 반영 안 됨 (의도된 상태)
-            product.setStock(product.getStock() - request.getQuantity());
+            product.setStock(product.getStock() - request.quantity());
 
-            int price = product.getPrice() * request.getQuantity();
+            int price = product.getPrice() * request.quantity();
             totalPrice += price;
 
-            result += product.getName() + " "
-                    + request.getQuantity() + "개 구매 ("
-                    + price + "원)\n";
+            items.add(new PurchaseItemResponse(
+                    product.getName(),
+                    request.quantity(),
+                    price
+            ));
         }
 
-        result += "총 금액: " + totalPrice;
-
-        return result;
+        return new PurchaseResponse(totalPrice, items);
     }
 
     // 재고 추가
-    public String addStock(Product request) {
+    @Transactional
+    public StockResponse addStock(StockRequest request) {
 
-        Product product = productRepository.findById(request.getId())
+        // Optional이기 때문이 한 번에 예외처리
+        Product product = productRepository.findById(request.productId())
                 .orElseThrow(() -> new RuntimeException("상품 없음"));
 
-        product.setStock(product.getStock() + request.getQuantity());
+        product.setStock(product.getStock() + request.quantity());
 
-        return product.getName() + " 재고: " + product.getStock();
+        return new StockResponse(
+                product.getName(),
+                product.getStock()
+        );
     }
 
     // 삭제
-    public List<Product> deleteProducts(List<Long> ids) {
+    @Transactional
+    public List<StockResponse> deleteProducts(List<Long> ids) {
 
-        // JPA 기본 메서드 사용
         productRepository.deleteAllById(ids);
 
         List<Product> products = productRepository.findAll();
-        List<Product> result = new ArrayList<>();
+        List<StockResponse> result = new ArrayList<>();
 
         for (Product p : products) {
-            Product summary = new Product();
-            summary.setName(p.getName());
-            summary.setStock(p.getStock());
-            result.add(summary);
+            result.add(new StockResponse(
+                    p.getName(),
+                    p.getStock()
+            ));
         }
 
         return result;
