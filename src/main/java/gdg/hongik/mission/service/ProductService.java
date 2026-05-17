@@ -24,14 +24,33 @@ public class ProductService {
                 .orElseThrow(() -> new RuntimeException("상품 없음"));
 
         return new ProductResponse(
+                product.getId(),
                 product.getName(),
                 product.getPrice(),
                 product.getStock()
         );
     }
 
+    // 상품 전체 조회
+    public List<ProductResponse> getAllProducts() {
+        List<Product> products = productRepository.findAll();
+        List<ProductResponse> result = new ArrayList<>();
+
+        for (Product product : products) {
+            result.add(new ProductResponse(
+                    product.getId(),
+                    product.getName(),
+                    product.getPrice(),
+                    product.getStock()
+                    )
+            );
+        }
+
+        return result;
+    }
+
     // 상품 등록
-    public String createProduct(ProductRequest request) {
+    public ProductResponse createProduct(ProductRequest request) {
         if (productRepository.findByName(request.name()).isPresent()) {
             throw new RuntimeException("이미 존재하는 상품입니다.");
         }
@@ -43,7 +62,12 @@ public class ProductService {
         product.setStock(request.stock());
         productRepository.save(product);
 
-        return "상품 등록 완료";
+        return new ProductResponse(
+                product.getId(),
+                product.getName(),
+                product.getPrice(),
+                product.getStock()
+        );
     }
 
     // 구매

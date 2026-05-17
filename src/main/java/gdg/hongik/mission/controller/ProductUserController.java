@@ -11,6 +11,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/products")
+@CrossOrigin(origins = "*")
 public class ProductUserController {
 
     private final ProductService productService;
@@ -19,7 +20,13 @@ public class ProductUserController {
         this.productService = productService;
     }
 
+    // 전체 조회 추가
     @GetMapping
+    public List<ProductResponse> getAllProducts() {
+        return productService.getAllProducts();
+    }
+
+    @GetMapping("/search")
     public ProductResponse getProduct(@RequestParam String name) {
         return productService.getProduct(name);
     }
